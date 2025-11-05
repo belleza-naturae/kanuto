@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanuto Rifa - ¡Tu suerte cósmica te espera!</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Fondo cósmico profundo */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0d1117; /* Gris muy oscuro, casi negro */
+            color: #e2e8f0; 
+            background-image: radial-gradient(at 0% 0%, #171b30, #0d1117); /* Degradado sutil */
+        }
+        
+        /* Efecto de sombra de neón para texto principal */
+        .neon-text {
+            text-shadow: 0 0 5px #f6e05e, 0 0 10px #f6e05e, 0 0 20px #f6e05e, 0 0 40px rgba(246, 224, 94, 0.4);
+        }
+
+        /* Botones de número con efecto de moneda o token */
+        .number-button {
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px #000;
+            border-radius: 0.5rem; 
+            font-weight: 800;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .number-button:hover:not(.reserved):not(.paid):not(.winner) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px #000, 0 0 10px #38bdf8; /* Sombra elevada y un sutil brillo azul */
+        }
+        
+        /* Colores y Estilos Mágicos */
+        .reserved { 
+            background-color: #8b5cf6; /* Morado intenso */
+            color: white; 
+            cursor: not-allowed; 
+            opacity: 0.9;
+        }
+        .paid { 
+            background-color: #10b981; /* Verde esmeralda */
+            color: white; 
+            cursor: not-allowed; 
+            opacity: 1; 
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); /* Sombra de brillo verde */
+        }
+        .winner { 
+            background-color: #f59e0b; /* Dorado */
+            color: #1a202c; 
+            cursor: not-allowed; 
+            opacity: 1; 
+            border: 3px solid #f6e05e; 
+            box-shadow: 0 0 20px #f6e05e; /* Fuego dorado */
+        } 
+        .available { 
+            background-color: #3b82f6; /* Azul brillante */
+            color: white; 
+        }
+
+        /* Loader */
+        .pulse-loader { width: 12px; height: 12px; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* Barra de progreso - Llenado */
+        #progress-bar-fill {
+            transition: width 1s ease-out, background-color 0.5s;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        <!-- Header y Estado del Premio -->
+        <header class="text-center mb-10 p-6 bg-gray-800 rounded-3xl shadow-2xl border border-gray-700">
+            <h1 class="text-6xl font-black text-yellow-300 neon-text">KANUTO</h1>
+            <p class="text-2xl italic mt-2 text-cyan-400">¡Tu suerte cósmica te espera!</p>
+            
+            <div id="prize-status" class="mt-8 text-left">
+                <!-- Se cargará dinámicamente -->
+            </div>
+
+            <!-- NUEVO ELEMENTO: BARRA DE PROGRESO DE VENTAS -->
+            <div class="mt-6">
+                <h4 class="text-xl font-bold mb-2 text-purple-300">Progreso de Venta <span id="progress-percent-display" class="neon-text text-yellow-300">0%</span></h4>
+                <div class="w-full bg-gray-700 rounded-full h-4 shadow-inner overflow-hidden">
+                    <div id="progress-bar-fill" class="h-4 rounded-full" style="width: 0%; background-color: #3b82f6;"></div>
+                </div>
+                <p id="numbers-sold-display" class="text-xs mt-1 text-gray-400">0 de 100 números vendidos.</p>
+            </div>
+            
+            <p class="text-sm mt-4 text-red-500 font-semibold">Cierre de ventas: Sábado 22:00h. Sortea con Lotería de Boyacá.</p>
+        </header>
+
+        <!-- Navegación y Vistas -->
+        <div id="main-view">
+            <!-- Mensaje de Error de Conexión (Aparecerá aquí si falla la conexión) -->
+            <div id="connection-error-message" class="hidden p-4 mb-6 bg-red-900 border-l-4 border-red-500 text-red-200 rounded-lg shadow-md">
+                <h3 class="font-extrabold text-xl mb-2">🚨 ERROR CRÍTICO DE CONEXIÓN 🚨</h3>
+                <p class="text-sm">La aplicación no pudo conectarse al servidor de Google Apps Script (Backend). Por favor, verifica tu Despliegue.</p>
+                <ul class="list-disc list-inside mt-2 text-sm font-semibold">
+                    <li>El **Despliegue** tiene acceso a: **"Cualquier usuario"**.</li>
+                    <li>La URL en el código HTML (`GS_WEB_APP_URL`) es la URL de tu **último Despliegue**.</li>
+                </ul>
+            </div>
+            <!-- Fin Mensaje de Error de Conexión -->
+
+            <!-- Grid de Números -->
+            <h2 class="text-3xl font-bold mb-6 text-center text-gray-100">Selecciona tu Número de la Suerte (00 - 99)</h2>
+            <div id="number-grid" class="grid grid-cols-10 gap-3 mb-10 p-5 bg-gray-900 border border-gray-700 rounded-xl shadow-inner shadow-gray-700/50">
+                <!-- Los botones de números se inyectarán aquí -->
+            </div>
+            
+            <!-- Leyenda de Estados -->
+            <div class="flex flex-wrap justify-center gap-6 text-sm mb-8 text-gray-300">
+                <span class="flex items-center"><span class="w-4 h-4 rounded-full available mr-2 shadow-lg"></span>Disponible</span>
+                <span class="flex items-center"><span class="w-4 h-4 rounded-full reserved mr-2 shadow-lg"></span>Reservado</span>
+                <span class="flex items-center"><span class="w-4 h-4 rounded-full paid mr-2 shadow-lg"></span>Pagado</span>
+                <span class="flex items-center"><span class="w-4 h-4 rounded-full winner mr-2 shadow-lg border-2 border-yellow-400"></span>¡Ganador!</span>
+            </div>
+
+            <!-- Consulta y Admin -->
+            <div class="flex flex-col md:flex-row justify-between gap-4">
+                <button onclick="showPhoneLookup()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl transition duration-150 shadow-lg hover:shadow-purple-400/50">
+                    Consultar Comprobante
+                </button>
+                <button onclick="showAdminLogin()" class="flex-1 bg-red-700 hover:bg-red-800 text-white font-bold py-3 px-4 rounded-xl transition duration-150 shadow-lg hover:shadow-red-500/50">
+                    Administración (Solo Kanuto)
+                </button>
+            </div>
+        </div>
+
+        <!-- Modales/Vistas Secundarias (Mismo estilo oscuro) -->
+
+        <!-- 1. Modal de Reserva y Pago -->
+        <div id="reservation-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-900 p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-700">
+                <h3 class="text-3xl font-bold mb-6 text-center text-yellow-300 neon-text">Reserva tu Número <span id="selected-number-display" class="text-white"></span></h3>
+                <form id="reservation-form" onsubmit="submitReservation(event)">
+                    <div class="mb-4">
+                        <label for="name" class="block text-sm font-medium text-gray-300">Nombre Completo</label>
+                        <input type="text" id="name" required class="mt-1 block w-full rounded-lg border-gray-600 shadow-lg p-3 bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: Juan Pérez">
+                    </div>
+                    <div class="mb-4">
+                        <label for="phone" class="block text-sm font-medium text-gray-300">Teléfono (WhatsApp)</label>
+                        <input type="tel" id="phone" pattern="[0-9]{10}" title="Debe ser un número de 10 dígitos (solo números)" required class="mt-1 block w-full rounded-lg border-gray-600 shadow-lg p-3 bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: 3105551234">
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="payment-method" class="block text-sm font-medium text-gray-300">Selecciona tu Método de Pago</label>
+                        <select id="payment-method" required class="mt-1 block w-full rounded-lg border-gray-600 shadow-lg p-3 bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500">
+                            <option value="" disabled selected>-- Elegir Opción --</option>
+                            <option value="Nequi">Nequi</option>
+                            <option value="Daviplata">Daviplata</option>
+                            <option value="Bancolombia">Bancolombia</option>
+                            <option value="Efectivo">Efectivo (Pago físico a Kanuto)</option>
+                        </select>
+                    </div>
+
+                    <div class="mt-6 p-4 bg-gray-800 rounded-lg border border-purple-500/50">
+                        <p id="reservation-price-display" class="text-lg font-bold mb-3 text-cyan-400">Opciones de Pago - $10,000 COP</p>
+                        <ul class="space-y-2 text-sm text-gray-300">
+                            <li><span class="font-extrabold text-yellow-300">Nequi:</span> 3132492452</li>
+                            <li><span class="font-extrabold text-yellow-300">Daviplata:</span> 3005317839</li>
+                            <li><span class="font-extrabold text-yellow-300">Bancolombia Ahorros:</span> 70858904186</li>
+                        </ul>
+                        <p class="text-xs mt-3 text-red-400 font-semibold">Tu número estará reservado por 30 minutos. ¡Asegúralo con tu pago!</p>
+                    </div>
+
+                    <div class="mt-8 flex justify-between gap-3">
+                        <button type="button" onclick="closeModal('reservation-modal')" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl shadow-md">Cancelar</button>
+                        <button type="submit" id="reserve-btn" class="flex-1 bg-green-500 hover:bg-green-600 text-gray-900 font-bold py-3 rounded-xl flex items-center justify-center shadow-lg hover:shadow-green-500/50">
+                            <span id="reserve-btn-text">Confirmar Reserva</span>
+                            <div id="reserve-loader" class="pulse-loader bg-gray-900 rounded-full ml-3 hidden"></div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 2. Modal de Consulta de Usuario (Ganador/Comprobante) -->
+        <div id="lookup-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-900 p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-700">
+                <h3 class="text-3xl font-bold mb-6 text-center text-purple-400">Consultar Estado / Comprobante</h3>
+                <form id="lookup-form" onsubmit="lookupTicket(event)">
+                    <div class="mb-4">
+                        <label for="lookup-phone" class="block text-sm font-medium text-gray-300">Teléfono Registrado</label>
+                        <input type="tel" id="lookup-phone" pattern="[0-9]{10}" title="Debe ser un número de 10 dígitos (solo números)" required class="mt-1 block w-full rounded-lg border-gray-600 shadow-lg p-3 bg-gray-800 text-white focus:ring-purple-500 focus:border-purple-500" placeholder="Ej: 3105551234">
+                    </div>
+                    <div class="mt-6 flex justify-between gap-3">
+                        <button type="button" onclick="closeModal('lookup-modal')" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl shadow-md">Cerrar</button>
+                        <button type="submit" id="lookup-btn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl flex items-center justify-center shadow-lg hover:shadow-purple-500/50">
+                            <span id="lookup-btn-text">Consultar</span>
+                            <div id="lookup-loader" class="pulse-loader bg-white rounded-full ml-3 hidden"></div>
+                        </button>
+                    </div>
+                </form>
+                <div id="lookup-results" class="mt-6 hidden p-4 border border-gray-700 rounded-lg max-h-64 overflow-y-auto bg-gray-800">
+                    <!-- Resultados de la consulta -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Modal de Login/Panel de Administrador -->
+        <div id="admin-modal" class="hidden fixed inset-0 bg-black bg-opacity-85 flex items-center justify-center p-4 z-50">
+            <div class="bg-gray-900 p-8 rounded-2xl w-full max-w-lg shadow-2xl border border-gray-700">
+                <h3 class="text-3xl font-bold mb-6 text-center text-red-500">Panel de Administración</h3>
+                
+                <div id="admin-panel" class="mt-6">
+                    <h4 class="text-xl font-semibold mb-4 text-gray-100">Registrar Número Ganador de Lotería (4 Cifras)</h4>
+                    <form onsubmit="submitWinner(event)" class="space-y-4">
+                        <input type="password" id="admin-password-input" required class="mt-1 block w-full rounded-lg border-gray-600 shadow-lg p-3 bg-gray-800 text-white focus:ring-red-500 focus:border-red-500" placeholder="Contraseña de Administración">
+                        <label for="winner-number" class="block text-sm font-medium text-gray-300">Número de 4 cifras (Ej: 1234)</label>
+                        <input type="number" id="winner-number" min="0" max="9999" required class="mt-1 block w-full rounded-lg border-gray-600 shadow-lg p-3 bg-gray-800 text-white focus:ring-red-500 focus:border-red-500" placeholder="0000 - 9999">
+                        <button type="submit" id="winner-btn" class="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 rounded-xl transition duration-150 flex items-center justify-center shadow-lg hover:shadow-yellow-400/50">
+                            <span id="winner-btn-text">Confirmar Ganador y Notificar</span>
+                            <div id="winner-loader" class="pulse-loader bg-gray-900 rounded-full ml-3 hidden"></div>
+                        </button>
+                    </form>
+
+                    <div id="winner-results" class="mt-6 p-4 bg-gray-800 rounded-lg hidden border border-green-500/50">
+                        <p class="font-bold text-lg mb-2 text-green-400">Resultados del Sorteo:</p>
+                        <!-- Resultados de GS (Enlaces de WhatsApp) -->
+                    </div>
+                </div>
+
+                <button type="button" onclick="closeModal('admin-modal')" class="mt-6 w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl shadow-md">Cerrar Panel</button>
+            </div>
+        </div>
+
+        <!-- 4. Mensajes de Notificación Global -->
+        <div id="notification-box" class="fixed bottom-4 right-4 p-4 rounded-xl shadow-2xl text-white hidden transition-opacity duration-300 border border-white/10" style="min-width: 300px;"></div>
+
+    </div>
+
+    <script>
+        // CRÍTICO: URL ACTUALIZADA
+        const GS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwreR-UHpjr863LAGa8NUXbmiYdcaeYvRUW-7k1Ef6pgb_JnZyy6_-kpQPlBuU4IQPJuQ/exec'; 
+
+        let selectedNumber = null;
+        let numbersState = {}; 
+        let ticketPrice = 10000; // Variable global para almacenar el precio del tiquete (Valor por defecto)
+        
+        // Helper para la lógica de reintento
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // --- FUNCIONES DE UTILIDAD UI ---
+
+        function notify(message, type = 'info') {
+            const box = document.getElementById('notification-box');
+            box.textContent = message;
+            box.classList.remove('hidden', 'bg-blue-800', 'bg-red-800', 'bg-green-800', 'bg-yellow-800');
+            box.classList.add('opacity-100');
+
+            if (type === 'success') box.classList.add('bg-green-800');
+            else if (type === 'error') box.classList.add('bg-red-800');
+            else if (type === 'warning') box.classList.add('bg-yellow-800');
+            else box.classList.add('bg-blue-800');
+
+            setTimeout(() => {
+                box.classList.remove('opacity-100');
+                box.classList.add('hidden');
+            }, 5000);
+        }
+
+        function showLoader(elementId) {
+            const textEl = document.getElementById(elementId + '-text');
+            const loaderEl = document.getElementById(elementId + '-loader');
+            
+            if (textEl) textEl.classList.add('hidden');
+            if (loaderEl) loaderEl.classList.remove('hidden');
+        }
+
+        function hideLoader(elementId) {
+            const textEl = document.getElementById(elementId + '-text');
+            const loaderEl = document.getElementById(elementId + '-loader');
+
+            if (textEl) textEl.classList.remove('hidden');
+            if (loaderEl) loaderEl.classList.add('hidden');
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+        
+        /**
+         * Actualiza el texto del modal de reserva con el precio del tiquete.
+         * @param {number} price Precio actual del tiquete.
+         */
+        function updatePriceDisplay(price) {
+            const priceEl = document.getElementById('reservation-price-display');
+            if (priceEl) {
+                const formattedPrice = price.toLocaleString('es-CO');
+                priceEl.textContent = `Opciones de Pago - $${formattedPrice} COP`;
+            }
+        }
+
+        // --- FUNCIONES DE VISTA ESPECÍFICAS ---
+
+        function showAdminLogin() {
+            document.getElementById('winner-results').classList.add('hidden');
+            document.getElementById('admin-password-input').value = '';
+            document.getElementById('winner-number').value = '';
+            openModal('admin-modal');
+        }
+
+        function showPhoneLookup() {
+            document.getElementById('lookup-results').classList.add('hidden');
+            document.getElementById('lookup-form').reset();
+            openModal('lookup-modal');
+        }
+        
+        // --- LÓGICA DE INTERACCIÓN ---
+        
+        function renderState(numbers, prizes) {
+            
+            // 1. Cálculo para la barra de progreso
+            let paidCount = 0;
+            let reservedCount = 0;
+            const totalNumbers = 100;
+
+            Object.values(numbers).forEach(status => {
+                if (status === 'Pagado' || status === 'Ganador') paidCount++;
+                else if (status === 'Reservado') reservedCount++;
+            });
+            
+            const totalSold = paidCount + reservedCount;
+            const progressPercent = (totalSold / totalNumbers) * 100;
+            
+            // 2. Actualizar barra de progreso y texto
+            const progressFill = document.getElementById('progress-bar-fill');
+            const progressPercentDisplay = document.getElementById('progress-percent-display');
+            const numbersSoldDisplay = document.getElementById('numbers-sold-display');
+
+            progressFill.style.width = `${progressPercent}%`;
+            progressPercentDisplay.textContent = `${Math.round(progressPercent)}%`;
+            numbersSoldDisplay.textContent = `${totalSold} de ${totalNumbers} números vendidos.`;
+            
+            // Cambiar color de la barra en base al progreso
+            if (progressPercent >= 90) {
+                progressFill.style.backgroundColor = '#10b981'; // Verde fuerte si casi se llena
+            } else if (progressPercent >= 50) {
+                 progressFill.style.backgroundColor = '#f59e0b'; // Naranja si es la mitad
+            } else {
+                progressFill.style.backgroundColor = '#3b82f6'; // Azul estándar
+            }
+
+
+            // 3. Renderizar estado de premios
+            const prizeHtml = `
+                <div class="p-3 bg-gray-900 rounded-lg border border-cyan-500/30">
+                    <h4 class="text-xl font-bold mb-2 text-yellow-300">Premios Cósmicos Actuales (Acumulados)</h4>
+                    <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                        <div class="p-2 bg-gray-800 rounded shadow-md">
+                            <p class="font-bold text-yellow-500">Últimas 2 Cifras ($${(prizes.lastTwo || 0).toLocaleString('es-CO')})</p>
+                        </div>
+                        <div class="p-2 bg-gray-800 rounded shadow-md">
+                            <p class="font-bold text-green-500">Primeras 2 Cifras ($${(prizes.firstTwo || 0).toLocaleString('es-CO')})</p>
+                        </div>
+                        <div class="p-2 bg-gray-800 rounded shadow-md">
+                            <p class="font-bold text-blue-500">Cifras Centrales ($${(prizes.centerTwo || 0).toLocaleString('es-CO')})</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('prize-status').innerHTML = prizeHtml;
+
+            // 4. Renderizar grilla de números
+            const grid = document.getElementById('number-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 100; i++) {
+                const numberStr = i.toString().padStart(2, '0');
+                const status = numbers[numberStr] || 'No finalizado'; // Por defecto disponible
+                
+                let bgColor = 'available';
+                let text = numberStr;
+
+                if (status === 'Reservado') {
+                    bgColor = 'reserved';
+                    text = '⏳';
+                } else if (status === 'Pagado') {
+                    bgColor = 'paid';
+                    text = '✅';
+                } else if (status === 'Ganador') { 
+                    bgColor = 'winner';
+                    text = '🏆';
+                }
+
+                const button = document.createElement('button');
+                button.textContent = text;
+                button.className = `number-button ${bgColor} font-bold p-2 text-center text-lg`;
+                
+                const isDisabled = (status !== 'No finalizado');
+                if (isDisabled) {
+                    button.disabled = true;
+                } else {
+                    button.onclick = () => selectNumber(numberStr, status);
+                }
+                
+                grid.appendChild(button);
+            }
+            
+            document.getElementById('connection-error-message').classList.add('hidden');
+        }
+
+        // Función para generar la grilla de números y cargar el estado (CON RETRY LOGIC)
+        async function loadNumbers(retries = 4) {
+            
+            let error = null;
+            // Log para confirmar la URL de Apps Script en la consola
+            console.log('Attempting to fetch state from Apps Script URL:', GS_WEB_APP_URL); 
+            
+            for (let i = 0; i < retries; i++) {
+                try {
+                    if (i > 0) {
+                        const delayTime = Math.pow(2, i) * 1000;
+                        await delay(delayTime);
+                    }
+
+                    const fetchUrl = GS_WEB_APP_URL + '?action=get_state'; // Usar una variable para log más claro
+                    console.log(`[Attempt ${i + 1}] Fetching: ${fetchUrl}`); 
+
+                    const response = await fetch(fetchUrl, {
+                        method: 'GET',
+                        mode: 'cors',
+                        credentials: 'omit',
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok && i < retries - 1) {
+                         console.error(`[Attempt ${i + 1}] HTTP Error Status: ${response.status} ${response.statusText}`); 
+                         throw new Error(`Error de red HTTP: ${response.status} ${response.statusText}`);
+                    } else if (!response.ok) {
+                         console.error(`[Final Attempt] HTTP Error Status: ${response.status} ${response.statusText}`); 
+                         throw new Error(`Error de red HTTP final: ${response.status} ${response.statusText}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'error') {
+                        throw new Error('Error de Apps Script: ' + data.message);
+                    }
+                    
+                    // Success path
+                    numbersState = data.numbers;
+                    ticketPrice = data.ticketPrice || 10000; 
+                    renderState(data.numbers, data.prizes);
+                    updatePriceDisplay(ticketPrice); 
+                    document.getElementById('connection-error-message').classList.add('hidden');
+                    return; // Exit function on success
+
+                } catch (e) {
+                    error = e;
+                    console.error(`Intento ${i + 1} fallido:`, e);
+                }
+            }
+
+            const finalErrorMessage = error ? error.message : 'Fallo de conexión persistente.';
+            console.error('Error fetching numbers:', finalErrorMessage);
+            
+            document.getElementById('connection-error-message').classList.remove('hidden');
+            // MENSAJE MEJORADO PARA FORZAR EL NUEVO DESPLIEGUE
+            notify(`ERROR CRÍTICO: ${finalErrorMessage}. La URL está configurada, pero el servidor no responde. ¡SOLUCIÓN! Debes realizar un NUEVO DESPLIEGUE de tu Apps Script. Configuración: 'Ejecutar como: Usuario que accede' y 'Acceso: Cualquier usuario'.`, 'error'); 
+            renderState({}, { lastTwo: 200000, firstTwo: 50000, centerTwo: 50000 }); 
+            updatePriceDisplay(ticketPrice); // Usa el valor por defecto en caso de fallo total
+        }
+
+        // Función para seleccionar un número
+        function selectNumber(numberStr, status) {
+            if (status !== 'No finalizado') {
+                notify(`El número ${numberStr} ya está ${status.toLowerCase()}. Por favor elige otro.`, 'warning');
+                return;
+            }
+
+            selectedNumber = numberStr;
+            document.getElementById('selected-number-display').textContent = selectedNumber;
+            document.getElementById('payment-method').value = ''; 
+            openModal('reservation-modal');
+        }
+
+        // Función para enviar la reserva a GS
+        async function submitReservation(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
+            const paymentMethod = document.getElementById('payment-method').value;
+
+            if (!selectedNumber) return notify('Error: No hay número seleccionado.', 'error');
+            if (!paymentMethod) return notify('Error: Por favor, selecciona un Método de Pago.', 'error'); 
+
+            // CRÍTICO: Validar formato del teléfono antes de enviar (por si se saltan el pattern)
+            if (!/^[0-9]{10}$/.test(phone)) {
+                 return notify('Error: El teléfono debe ser un número de 10 dígitos (solo números).', 'error');
+            }
+            
+            showLoader('reserve-btn');
+
+            try {
+                const response = await fetch(GS_WEB_APP_URL + '?action=reserve_number', {
+                    method: 'POST',
+                    mode: 'cors', 
+                    credentials: 'omit',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `number=${selectedNumber}&name=${encodeURIComponent(name)}&phone=${phone}&paymentMethod=${encodeURIComponent(paymentMethod)}`
+                });
+
+                const data = await response.json();
+                hideLoader('reserve-btn');
+
+                if (data.status === 'success') {
+                    if (data.expired) {
+                        notify(`¡EXITOSO! El número ${selectedNumber} estaba reservado y expiró. Ahora es tuyo. Método: ${data.paymentMethod}.`, 'success');
+                    } else {
+                        notify(`¡Número ${selectedNumber} reservado! Método: ${data.paymentMethod}. Tienes 30 minutos para el pago.`, 'success');
+                    }
+                    closeModal('reservation-modal');
+                    loadNumbers(); 
+                } else {
+                    notify(`Error al reservar: ${data.message || 'Inténtalo de nuevo.'}`, 'error');
+                }
+
+            } catch (error) {
+                hideLoader('reserve-btn');
+                notify('Error de conexión con el backend.', 'error');
+                console.error('Reservation Error:', error);
+            }
+        }
+
+        // Función para consultar el tiquete por teléfono
+        async function lookupTicket(event) {
+            event.preventDefault();
+            
+            const phone = document.getElementById('lookup-phone').value;
+            const resultsDiv = document.getElementById('lookup-results');
+            resultsDiv.classList.add('hidden');
+            showLoader('lookup-btn');
+
+            try {
+                const response = await fetch(GS_WEB_APP_URL + `?action=lookup_ticket&phone=${phone}`, {
+                    method: 'GET',
+                    mode: 'cors', 
+                    credentials: 'omit',
+                    headers: { 'Accept': 'application/json' }
+                });
+                const data = await response.json();
+                hideLoader('lookup-btn');
+
+                let html = '';
+
+                if (data.status === 'success' && data.tickets.length > 0) {
+                    html = data.tickets.map(ticket => {
+                        const isPaid = ticket.status === 'Pagado' || ticket.status === 'Ganador';
+                        const isWinner = ticket.status === 'Ganador';
+                        const statusClass = isPaid ? 'text-green-400' : (ticket.status === 'Reservado' ? 'text-yellow-400' : 'text-red-400');
+                        
+                        return `
+                            <div class="mb-3 p-3 border-b border-gray-700 last:border-b-0">
+                                <p class="font-bold text-lg text-white">Número: ${ticket.number}</p>
+                                <p>Estado: <span class="${statusClass}">${ticket.status}</span></p>
+                                ${isWinner ? `<p class="mb-2 text-red-500 font-bold">¡ESTE ES UN NÚMERO GANADOR! 🏆</p>` : `<p class="mb-2 text-gray-400">Ganador: N/A</p>`}
+                                ${isPaid ? 
+                                    `<button onclick="downloadReceipt('${ticket.number}', '${ticket.name}', '${ticket.phone}')" class="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs py-1 px-3 rounded-lg shadow-sm">Descargar Comprobante</button>`
+                                    : `<p class="text-xs text-red-400 mt-2">Paga tu reserva para obtener el comprobante.</p>`
+                                }
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    html = '<p class="text-center text-gray-400">No se encontraron números asociados a este teléfono.</p>';
+                }
+
+                resultsDiv.innerHTML = html;
+                resultsDiv.classList.remove('hidden');
+
+            } catch (error) {
+                hideLoader('lookup-btn');
+                notify('Error de conexión al consultar el tiquete.', 'error');
+                console.error('Lookup Error:', error);
+            }
+        }
+
+        /**
+         * Función para descargar el comprobante (genera un simple PDF/Texto)
+         * Utiliza la variable global 'ticketPrice'
+         * @param {string} number Número del tiquete.
+         * @param {string} name Nombre del comprador.
+         * @param {string} phone Teléfono del comprador.
+         */
+        function downloadReceipt(number, name, phone) {
+            const date = new Date().toLocaleDateString('es-CO');
+            // Usamos la variable global ticketPrice que se actualiza desde la hoja de Google
+            const formattedPrice = ticketPrice.toLocaleString('es-CO'); 
+
+            const receiptText = `
+--- COMPROBANTE DE COMPRA KANUTO ---
+
+MARCA: KANUTO - ¡Tu suerte cósmica te espera!
+FECHA DE EMISIÓN: ${date}
+ID DE TRANSACCIÓN: ${Date.now()}
+            
+DETALLE DE LA COMPRA:
+Número Seleccionado: ${number}
+Estado: PAGADO
+Precio: $${formattedPrice} COP
+
+DATOS DEL CONCURSANTE:
+Nombre: ${name}
+Teléfono: ${phone}
+
+PREMIOS A LOS QUE APLICA:
+1. Dos últimas cifras (Lotería Boyacá): Monto Acumulable
+2. Dos primeras cifras (Lotería Boyacá): Monto Acumulable
+3. Cifras centrales (Lotería Boyacá): Monto Acumulable
+
+¡Mucha suerte!
+--- Fin del Comprobante ---
+            `;
+
+            const blob = new Blob([receiptText], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Comprobante_Kanuto_${number}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            notify(`Comprobante para el número ${number} descargado.`, 'success');
+        }
+
+        // --- FUNCIONES DE ADMINISTRACIÓN ---
+
+        async function submitWinner(event) {
+            event.preventDefault();
+            const winnerNumber = document.getElementById('winner-number').value.padStart(4, '0');
+            const adminPassword = document.getElementById('admin-password-input').value; // Obtener contraseña
+            
+            showLoader('winner-btn');
+
+            try {
+                const response = await fetch(GS_WEB_APP_URL + '?action=set_winner', {
+                    method: 'POST',
+                    mode: 'cors', 
+                    credentials: 'omit',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `winningNumber=${winnerNumber}&adminPassword=${encodeURIComponent(adminPassword)}`
+                });
+
+                const data = await response.json();
+                hideLoader('winner-btn');
+
+                const resultsDiv = document.getElementById('winner-results');
+                resultsDiv.classList.remove('hidden');
+
+                if (data.status === 'success') {
+                    notify('Sorteo procesado con éxito. Revisando ganadores.', 'success');
+                    
+                    let winnerHtml = `<p class="text-xl font-bold text-yellow-400">Lotería ${winnerNumber}</p>`;
+                    
+                    if (data.results.length === 0) {
+                        winnerHtml += `<p class="mt-2 text-white">¡No hubo ganadores! Los premios se han duplicado para el próximo sorteo.</p>`;
+                    } else {
+                        winnerHtml += `<p class="mt-2 text-green-400 font-semibold">¡Felicidades a los ganadores! (${data.results.length} aciertos)</p>`;
+                        
+                        data.results.forEach(winner => {
+                            winnerHtml += `
+                                <div class="p-2 mt-3 bg-gray-800 rounded">
+                                    <p>Ganador: <span class="font-bold">${winner.name}</span> (Número ${winner.number})</p>
+                                    <p>Acertó: <span class="font-bold text-red-400">${winner.prizeType}</span></p>
+                                    <p>Premio: <span class="font-bold text-yellow-400">$${winner.prizeAmount.toLocaleString('es-CO')}</span></p>
+                                    <!-- Enlace de WhatsApp para notificar -->
+                                    <a href="https://wa.me/57${winner.phone}?text=${encodeURIComponent(winner.whatsappMessage)}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm mt-1 block">
+                                        Enviar WhatsApp de Notificación (Abrir Chat)
+                                    </a>
+                                </div>
+                            `;
+                        });
+                    }
+
+                    resultsDiv.innerHTML = winnerHtml;
+                    loadNumbers(); 
+                } else {
+                    notify(`Error al procesar el ganador: ${data.message}`, 'error');
+                    resultsDiv.innerHTML = `<p class="text-red-400">Error: ${data.message}</p>`;
+                }
+            } catch (error) {
+                hideLoader('winner-btn');
+                notify('Error de conexión con el backend GS.', 'error');
+                console.error('Winner Submission Error:', error);
+            }
+        }
+
+        // Inicialización
+        window.onload = loadNumbers;
+
+    </script>
+</body>
+</html>
